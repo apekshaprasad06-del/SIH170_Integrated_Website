@@ -5,7 +5,6 @@ import io
 import os
 import sys
 import traceback
-import threading
 from pathlib import Path
 from typing import Any
 
@@ -28,7 +27,7 @@ from preprocessing import FEATURE_COLUMNS, RAW_COLUMNS, preprocess
 from qa_reporter import QAReporter
 
 from ess_predictor.data.synthetic_data import generate_synthetic_dataset
-from ess_predictor.pipeline import train_all_parameters, predict_component
+from ess_predictor.pipeline import load_system, predict_component
 from ess_predictor.safety.decision import overall_component_decision
 
 app = FastAPI(title="SIH PS170 Integrated Screening", version="1.0.0")
@@ -58,8 +57,12 @@ MODEL_B_READY = False
 MODEL_B_TRAINING_IN_PROGRESS = False
 MODEL_B_ERROR = None
 
+# Module B is trained once by GitHub Actions and stored with the application.
+# Render only loads the finished artifact; it never performs expensive CV training.
+MODEL_B_ARTIFACT = BASE / "ess_predictor" / "artifacts" / "module_b_system.pkl"
 
-def train_module_b():
+
+def load_module_b():
     global MODEL_B_SYSTEM
     global MODEL_B_TRAINING
     global STARTUP_ERROR
@@ -67,55 +70,40 @@ def train_module_b():
     global MODEL_B_TRAINING_IN_PROGRESS
     global MODEL_B_ERROR
 
-    MODEL_B_TRAINING_IN_PROGRESS = True
+    MODEL_B_TRAINING_IN_PROGRESS = False
     MODEL_B_READY = False
     MODEL_B_ERROR = None
 
     try:
-        print("Module B: background training started...")
+        print("Module B: loading pre-trained model artifact...")
 
-        MODEL_B_TRAINING = generate_synthetic_dataset(
-            n_components=40,
-            n_lots=4,
-            seed=42,
-            profile="balanced"
-        )
+        if not MODEL_B_ARTIFACT.exists():
+            raise FileNotFoundError(
+                f"Pre-trained Module B artifact not found at {MODEL_B_ARTIFACT}. "
+                "The GitHub Actions training job must finish before Render can use Module B."
+            )
 
-        print("Module B: synthetic training data generated.")
-
-        MODEL_B_SYSTEM = train_all_parameters(
-            MODEL_B_TRAINING,
-            n_folds=3,
-            verbose=False
-        )
-
+        MODEL_B_SYSTEM = load_system(str(MODEL_B_ARTIFACT))
         MODEL_B_READY = True
-        MODEL_B_TRAINING_IN_PROGRESS = False
+        STARTUP_ERROR = None
 
-        print("Module B: training completed successfully.")
+        print("Module B: pre-trained model loaded successfully.")
 
     except Exception as exc:
+        MODEL_B_SYSTEM = None
         MODEL_B_READY = False
-        MODEL_B_TRAINING_IN_PROGRESS = False
         MODEL_B_ERROR = str(exc)
-        STARTUP_ERROR = f"Module B startup training failed: {exc}"
+        STARTUP_ERROR = f"Module B model loading failed: {exc}"
 
-        print(f"Module B training failed: {exc}")
+        print(f"Module B model loading failed: {exc}")
         traceback.print_exc()
 
 
 @app.on_event("startup")
 def startup():
-    print("FastAPI startup: starting server immediately.")
-
-    training_thread = threading.Thread(
-        target=train_module_b,
-        daemon=True
-    )
-
-    training_thread.start()
-
-    print("FastAPI startup: Module B training launched in background.")
+    print("FastAPI startup: loading Module B artifact.")
+    load_module_b()
+    print("FastAPI startup: Module B load finished.")
 
 
 def _native(v):
@@ -424,8 +412,8 @@ async def screen(file: UploadFile = File(...)):
             },
             "module_b": {
                 "decisions": b_counts,
-                "training_source": "Module B synthetic development data",
-                "training_rows": len(MODEL_B_TRAINING) if MODEL_B_TRAINING is not None else 0,
+                "training_source": "Pre-trained Module B synthetic development model",
+                "training_rows": 0,
             },
             "records": records,
         }
