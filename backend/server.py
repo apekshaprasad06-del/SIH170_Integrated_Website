@@ -314,7 +314,8 @@ def sample():
 
 @app.post("/api/screen")
 async def screen(file: UploadFile = File(...)):
-        if not MODEL_B_READY:
+
+    if not MODEL_B_READY:
         if MODEL_B_TRAINING_IN_PROGRESS:
             raise HTTPException(
                 status_code=503,
@@ -331,8 +332,12 @@ async def screen(file: UploadFile = File(...)):
             status_code=503,
             detail="Module B is not ready yet. Please try again shortly."
         )
+
     if not file.filename.lower().endswith(".csv"):
-        raise HTTPException(status_code=400, detail="Please upload a CSV file.")
+        raise HTTPException(
+            status_code=400,
+            detail="Please upload a CSV file."
+        )
 
     try:
         content = await file.read()
