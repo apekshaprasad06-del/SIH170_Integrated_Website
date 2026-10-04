@@ -1,0 +1,63 @@
+name: Train Module B artifact
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "backend/ess_predictor/artifacts/**"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  train-module-b:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Train and save Module B
+        run: |
+          mkdir -p backend/ess_predictor/artifacts
+          python - <<'PY'
+          import sys
+          sys.path.insert(0, "backend")
+          from ess_predictor.data.synthetic_data import generate_synthetic_dataset
+          from ess_predictor.pipeline import train_all_parameters, save_system
+
+          print("Generating Module B development data...")
+          df = generate_synthetic_dataset(
+              n_components=40,
+              n_lots=4,
+              seed=42,
+              profile="balanced",
+          )
+
+          print("Training Module B once for deployment...")
+          system = train_all_parameters(df, n_folds=3, verbose=True)
+
+          path = "backend/ess_predictor/artifacts/module_b_system.pkl"
+          save_system(system, path)
+          print(f"Saved trained artifact: {path}")
+          PY
+
+      - name: Commit trained artifact
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add backend/ess_predictor/artifacts/module_b_system.pkl
+          git diff --cached --quiet && echo "Artifact unchanged." && exit 0
+          git commit -m "chore: update pre-trained Module B artifact"
+          git push
