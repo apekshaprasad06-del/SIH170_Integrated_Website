@@ -75,8 +75,8 @@ def train_module_b():
         print("Module B: background training started...")
 
         MODEL_B_TRAINING = generate_synthetic_dataset(
-            n_components=240,
-            n_lots=6,
+            n_components=80,
+            n_lots=4,
             seed=42,
             profile="balanced"
         )
