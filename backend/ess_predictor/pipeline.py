@@ -319,6 +319,96 @@ def train_all_parameters(df: pd.DataFrame, n_folds: int = N_GROUP_FOLDS,
     return system
 
 
+
+def train_deployment_system(df: pd.DataFrame) -> TrainedSystem:
+    """
+    Fast deployment training path for constrained hosts such as Render Free.
+
+    The full Module B training pipeline remains available in train_all_parameters().
+    This path uses the LinearRegression member of the same model zoo and a
+    component-disjoint held-out split for conformal intervals, avoiding the
+    repeated multi-model CV required during development/model selection.
+    """
+    report = validate_dataset(df)
+    usable_names = [p.name for p in report.usable_parameters]
+    df = handle_missing_values(df, usable_names)
+    system = TrainedSystem()
+
+    for p in report.usable_parameters:
+        target_col = f"{p.name}_168h"
+        if target_col not in df.columns or df[target_col].notna().sum() < 10:
+            continue
+
+        X, y, groups = build_feature_matrix(df, p.name)
+        if groups is None or groups.nunique() < 2:
+            continue
+
+        lot_ids = None
+        if "Lot_ID" in df.columns:
+            component_lots = (
+                df.drop_duplicates("Component_ID")
+                .set_index("Component_ID")["Lot_ID"]
+            )
+            lot_ids = groups.map(component_lots).reset_index(drop=True)
+
+        if groups.nunique() >= 4:
+            split = GroupShuffleSplit(
+                n_splits=1, test_size=0.20, random_state=RANDOM_STATE
+            )
+            fit_idx, cal_idx = next(split.split(X, y, groups=groups))
+        else:
+            fit_idx = np.arange(len(X))
+            cal_idx = np.array([], dtype=int)
+
+        zoo = build_model_zoo(include_baselines=True)
+        best_name = "LinearRegression"
+        best_pipeline = zoo[best_name]
+        best_pipeline.fit(X.iloc[fit_idx], y.iloc[fit_idx])
+
+        if len(cal_idx):
+            cal_pred = np.asarray(
+                best_pipeline.predict(X.iloc[cal_idx]), dtype=float
+            )
+            conformal = fit_conformal(
+                y.iloc[cal_idx].to_numpy(),
+                cal_pred,
+                alpha=CONFORMAL_ALPHA,
+            )
+        else:
+            # Small-data fallback: use training residuals only when a grouped
+            # calibration split cannot be formed.
+            fit_pred = np.asarray(
+                best_pipeline.predict(X.iloc[fit_idx]), dtype=float
+            )
+            conformal = fit_conformal(
+                y.iloc[fit_idx].to_numpy(),
+                fit_pred,
+                alpha=CONFORMAL_ALPHA,
+            )
+
+        system.bundles[p.name] = ParameterModelBundle(
+            param_cfg=p,
+            best_model_name=best_name,
+            pipeline=best_pipeline,
+            cv_results={},
+            conformal=conformal,
+            feature_columns=list(X.columns),
+            safety_metrics={},
+            interval_comparison={},
+            explanation_reference=X.iloc[fit_idx].median(axis=0),
+            lot_cv_results={},
+            calibration_predictions=pd.DataFrame(),
+        )
+
+    if "Lot_ID" in df.columns:
+        system.lot_reference = df[["Lot_ID"] + [
+            c for p in system.bundles
+            for c in [f"{p}_0h", f"{p}_24h"] if c in df.columns
+        ]].copy()
+
+    return system
+
+
 def predict_component(system: TrainedSystem, component_row: pd.DataFrame,
                        lot_reference_df: Optional[pd.DataFrame] = None,
                        include_explanations: bool = True) -> Dict[str, dict]:
