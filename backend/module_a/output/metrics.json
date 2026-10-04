@@ -1,0 +1,138 @@
+{
+  "attribution_method": "shap",
+  "threshold": 0.49491797911349306,
+  "metrics": {
+    "Full population": {
+      "recall": 0.993006993006993,
+      "precision": 0.6396396396396397,
+      "f1": 0.7780821917808219,
+      "f2": 0.8942065491183879,
+      "confusion_matrix": [
+        [
+          1755,
+          80
+        ],
+        [
+          1,
+          142
+        ]
+      ],
+      "tn": 1755,
+      "fp": 80,
+      "fn": 1,
+      "tp": 142,
+      "n_samples": 1978,
+      "n_positive": 143
+    },
+    "Calibration split": {
+      "recall": 1.0,
+      "precision": 0.631578947368421,
+      "f1": 0.7741935483870968,
+      "f2": 0.8955223880597015,
+      "confusion_matrix": [
+        [
+          875,
+          42
+        ],
+        [
+          0,
+          72
+        ]
+      ],
+      "tn": 875,
+      "fp": 42,
+      "fn": 0,
+      "tp": 72,
+      "n_samples": 989,
+      "n_positive": 72
+    },
+    "Held-out split": {
+      "recall": 0.9859154929577465,
+      "precision": 0.6481481481481481,
+      "f1": 0.7821229050279329,
+      "f2": 0.8928571428571429,
+      "confusion_matrix": [
+        [
+          880,
+          38
+        ],
+        [
+          1,
+          70
+        ]
+      ],
+      "tn": 880,
+      "fp": 38,
+      "fn": 1,
+      "tp": 70,
+      "n_samples": 989,
+      "n_positive": 71
+    },
+    "Static-limit screening (baseline)": {
+      "recall": 0.0,
+      "precision": 0.0,
+      "f1": 0.0,
+      "f2": 0.0,
+      "confusion_matrix": [
+        [
+          1835,
+          0
+        ],
+        [
+          143,
+          0
+        ]
+      ],
+      "tn": 1835,
+      "fp": 0,
+      "fn": 143,
+      "tp": 0,
+      "n_samples": 1978,
+      "n_positive": 143
+    },
+    "Isolation Forest only": {
+      "recall": 0.916083916083916,
+      "precision": 0.8136645962732919,
+      "f1": 0.8618421052631579,
+      "f2": 0.8935879945429741,
+      "confusion_matrix": [
+        [
+          1805,
+          30
+        ],
+        [
+          12,
+          131
+        ]
+      ],
+      "tn": 1805,
+      "fp": 30,
+      "fn": 12,
+      "tp": 131,
+      "n_samples": 1978,
+      "n_positive": 143
+    },
+    "DPAT rule only": {
+      "recall": 0.993006993006993,
+      "precision": 0.6761904761904762,
+      "f1": 0.8045325779036827,
+      "f2": 0.907928388746803,
+      "confusion_matrix": [
+        [
+          1767,
+          68
+        ],
+        [
+          1,
+          142
+        ]
+      ],
+      "tn": 1767,
+      "fp": 68,
+      "fn": 1,
+      "tp": 142,
+      "n_samples": 1978,
+      "n_positive": 143
+    }
+  }
+}

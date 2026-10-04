@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PS170 | Burn-in Screening Workbench</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">17</div>
+      <div>
+        <div class="brand-title">PS170 Screening Workbench</div>
+        <div class="brand-sub">ESS burn-in · component reliability review</div>
+      </div>
+    </div>
+    <div class="status-pill"><span id="statusDot"></span><span id="statusText">Checking models…</span></div>
+  </header>
+
+  <main class="shell">
+    <section class="intro">
+      <div>
+        <p class="eyebrow">SIH · PROBLEM STATEMENT 170</p>
+        <h1>From early burn-in readings to a forward-looking inspection.</h1>
+        <p class="lede">
+          Two complementary checks, one workbench. The first looks for unusual behaviour
+          within the lot; the second estimates where that behaviour could lead by 168 hours.
+        </p>
+      </div>
+      <a class="sample-link" href="/api/sample">Download sample CSV</a>
+    </section>
+
+    <section class="workflow">
+      <div class="step active"><span>01</span><div><b>Early screening</b><small>Dynamic outliers · DPAT + Isolation Forest</small></div></div>
+      <div class="connector"></div>
+      <div class="step"><span>02</span><div><b>Drift forecast</b><small>168 h prediction · uncertainty · safety band</small></div></div>
+      <div class="connector"></div>
+      <div class="step"><span>03</span><div><b>Inspection view</b><small>Trace the evidence per component</small></div></div>
+    </section>
+
+    <section class="upload-card" id="uploadCard">
+      <div class="upload-copy">
+        <p class="eyebrow">RUN A SCREENING</p>
+        <h2>Drop the burn-in CSV here</h2>
+        <p>Use the same 0h / 24h fields expected by Module A. The site maps them into Module B automatically.</p>
+        <div class="field-list">
+          <span>serial_number</span><span>lot_id</span><span>Iddq_0h / 24h</span><span>leakage_0h / 24h</span><span>delay_0h / 24h</span>
+        </div>
+      </div>
+      <label class="dropzone" id="dropzone">
+        <input id="fileInput" type="file" accept=".csv">
+        <div class="drop-icon">↑</div>
+        <strong id="fileLabel">Choose a CSV file</strong>
+        <small>or drag it onto this panel</small>
+      </label>
+      <div class="run-row">
+        <button id="runBtn" class="primary" disabled>Run integrated screening</button>
+        <span id="runNote">Select a CSV to begin.</span>
+      </div>
+    </section>
+
+    <section id="results" class="hidden">
+      <div class="result-head">
+        <div>
+          <p class="eyebrow">SCREENING COMPLETE</p>
+          <h2 id="resultTitle">Integrated result</h2>
+          <p id="resultMeta" class="muted"></p>
+        </div>
+        <button class="secondary" id="newRunBtn">Run another file</button>
+      </div>
+
+      <div class="stats-grid">
+        <article class="stat"><span>Chips screened</span><strong id="nRows">—</strong><small id="nLots">— lots</small></article>
+        <article class="stat"><span>Module A findings</span><strong id="aFlagged">—</strong><small id="aRate">—</small></article>
+        <article class="stat"><span>Module B review / reject</span><strong id="bConcern">—</strong><small>forecast stage</small></article>
+        <article class="stat"><span>Model hand-off</span><strong>0h → 24h → 168h</strong><small>same component IDs</small></article>
+      </div>
+
+      <div class="dashboard-grid">
+        <section class="panel overview">
+          <div class="panel-head"><div><h3>Screening picture</h3><p>What each stage found in the uploaded population.</p></div></div>
+          <div class="bars" id="bars"></div>
+          <div class="legend"><span><i class="a-dot"></i> Module A</span><span><i class="b-dot"></i> Module B</span></div>
+        </section>
+
+        <section class="panel note-panel">
+          <div class="panel-head"><div><h3>How the hand-off works</h3></div></div>
+          <ol class="handoff">
+            <li><b>Module A</b><span>Builds lot-relative robust features from 0h and 24h measurements and flags unusual chips.</span></li>
+            <li><b>Module B</b><span>Uses those same early readings to forecast the 168h value and prediction interval.</span></li>
+            <li><b>Inspector</b><span>Sees both pieces of evidence side by side instead of treating either model as a black box.</span></li>
+          </ol>
+          <div class="disclaimer">Development note: Module B is trained at startup on the repository's synthetic development data. Replace that training artifact with validated measured data before operational use.</div>
+        </section>
+      </div>
+
+      <section class="panel table-panel">
+        <div class="panel-head table-head">
+          <div><h3>Component inspection list</h3><p>Click a row to inspect both model outputs.</p></div>
+          <input id="search" class="search" placeholder="Search serial or lot…">
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Component</th><th>Lot</th><th>Module A</th><th>Module B</th><th>Joint view</th><th>Driver</th></tr></thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+
+    <section id="detail" class="hidden">
+      <div class="detail-head">
+        <button class="back" id="backBtn">← Back to list</button>
+        <div><p class="eyebrow">COMPONENT REVIEW</p><h2 id="detailTitle"></h2><p id="detailSub" class="muted"></p></div>
+      </div>
+      <div class="detail-grid">
+        <section class="panel">
+          <div class="panel-head"><div><h3>Module A · early behaviour</h3><p>Lot-relative dynamic screening.</p></div><span id="aBadge"></span></div>
+          <div id="aDetail"></div>
+        </section>
+        <section class="panel">
+          <div class="panel-head"><div><h3>Module B · 168 h forecast</h3><p>Prediction, interval and safety decision.</p></div><span id="bBadge"></span></div>
+          <div id="bDetail"></div>
+        </section>
+      </div>
+    </section>
+
+    <footer>
+      <span>PS170 Screening Workbench</span>
+      <span>Built around the supplied Module A + Module B repositories</span>
+    </footer>
+  </main>
+<script src="/app.js"></script>
+</body>
+</html>
