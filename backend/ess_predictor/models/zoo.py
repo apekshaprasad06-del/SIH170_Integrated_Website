@@ -111,24 +111,24 @@ def build_model_zoo(include_baselines: bool = False) -> Dict[str, Pipeline]:
         ("model", GaussianProcessRegressor(
             kernel=gpr_kernel,
             normalize_y=True,
-            n_restarts_optimizer=2,
+            n_restarts_optimizer=0,
             random_state=RANDOM_STATE,
         )),
     ])
 
     zoo["RandomForest"] = Pipeline([
         ("model", RandomForestRegressor(
-            n_estimators=300,
+            n_estimators=60,
             max_depth=6,
             min_samples_leaf=3,
             random_state=RANDOM_STATE,
-            n_jobs=-1,
+            n_jobs=1,
         )),
     ])
 
     # Use the conditional median as QRF's point prediction.
     qrf_kwargs = dict(
-        n_estimators=300,
+        n_estimators=60,
         max_depth=6,
         min_samples_leaf=3,
         random_state=RANDOM_STATE,
@@ -143,14 +143,14 @@ def build_model_zoo(include_baselines: bool = False) -> Dict[str, Pipeline]:
     if HAS_XGB:
         zoo["XGBoost"] = Pipeline([
             ("model", XGBRegressor(
-                n_estimators=300,
+                n_estimators=60,
                 max_depth=3,
                 learning_rate=0.05,
                 subsample=0.8,
                 colsample_bytree=0.8,
                 reg_lambda=1.0,
                 random_state=RANDOM_STATE,
-                n_jobs=-1,
+                n_jobs=1,
             )),
         ])
 
