@@ -5,6 +5,7 @@ import io
 import os
 import sys
 import traceback
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -39,31 +40,82 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/health")
+def health():
+    return {
+        "status": "ok",
+        "module_b_ready": MODEL_B_READY,
+        "module_b_training": MODEL_B_TRAINING_IN_PROGRESS,
+        "module_b_error": MODEL_B_ERROR
+    }
+
 MODEL_B_SYSTEM = None
 MODEL_B_TRAINING = None
 STARTUP_ERROR = None
 
+# Module B status
+MODEL_B_READY = False
+MODEL_B_TRAINING_IN_PROGRESS = False
+MODEL_B_ERROR = None
+
 
 def train_module_b():
-    global MODEL_B_SYSTEM, MODEL_B_TRAINING, STARTUP_ERROR
+    global MODEL_B_SYSTEM
+    global MODEL_B_TRAINING
+    global STARTUP_ERROR
+    global MODEL_B_READY
+    global MODEL_B_TRAINING_IN_PROGRESS
+    global MODEL_B_ERROR
+
+    MODEL_B_TRAINING_IN_PROGRESS = True
+    MODEL_B_READY = False
+    MODEL_B_ERROR = None
+
     try:
-        # Module B's repository does not contain a trained production artifact.
-        # Train once on its bundled synthetic development generator and keep
-        # the fitted system in memory for inference.
+        print("Module B: background training started...")
+
         MODEL_B_TRAINING = generate_synthetic_dataset(
-            n_components=240, n_lots=6, seed=42, profile="balanced"
+            n_components=240,
+            n_lots=6,
+            seed=42,
+            profile="balanced"
         )
+
+        print("Module B: synthetic training data generated.")
+
         MODEL_B_SYSTEM = train_all_parameters(
-            MODEL_B_TRAINING, n_folds=3, verbose=False
+            MODEL_B_TRAINING,
+            n_folds=3,
+            verbose=False
         )
+
+        MODEL_B_READY = True
+        MODEL_B_TRAINING_IN_PROGRESS = False
+
+        print("Module B: training completed successfully.")
+
     except Exception as exc:
+        MODEL_B_READY = False
+        MODEL_B_TRAINING_IN_PROGRESS = False
+        MODEL_B_ERROR = str(exc)
         STARTUP_ERROR = f"Module B startup training failed: {exc}"
+
+        print(f"Module B training failed: {exc}")
         traceback.print_exc()
 
 
 @app.on_event("startup")
 def startup():
-    train_module_b()
+    print("FastAPI startup: starting server immediately.")
+
+    training_thread = threading.Thread(
+        target=train_module_b,
+        daemon=True
+    )
+
+    training_thread.start()
+
+    print("FastAPI startup: Module B training launched in background.")
 
 
 def _native(v):
@@ -262,6 +314,23 @@ def sample():
 
 @app.post("/api/screen")
 async def screen(file: UploadFile = File(...)):
+        if not MODEL_B_READY:
+        if MODEL_B_TRAINING_IN_PROGRESS:
+            raise HTTPException(
+                status_code=503,
+                detail="Module B is still training. Please try again shortly."
+            )
+
+        if MODEL_B_ERROR:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Module B training failed: {MODEL_B_ERROR}"
+            )
+
+        raise HTTPException(
+            status_code=503,
+            detail="Module B is not ready yet. Please try again shortly."
+        )
     if not file.filename.lower().endswith(".csv"):
         raise HTTPException(status_code=400, detail="Please upload a CSV file.")
 
